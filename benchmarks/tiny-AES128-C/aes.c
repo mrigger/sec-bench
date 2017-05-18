@@ -50,13 +50,6 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 // The number of rounds in AES Cipher.
 #define Nr 10
 
-// jcallan@github points out that declaring Multiply as a function 
-// reduces code size considerably with the Keil ARM compiler.
-// See this link for more information: https://github.com/kokke/tiny-AES128-C/pull/3
-#ifndef MULTIPLY_AS_A_FUNCTION
-  #define MULTIPLY_AS_A_FUNCTION 0
-#endif
-
 
 /*****************************************************************************/
 /* Private variables:                                                        */
@@ -71,10 +64,9 @@ static uint8_t RoundKey[176];
 // The Key input to the AES Program
 static const uint8_t* Key;
 
-#if defined(CBC) && CBC
-  // Initial Vector used only for CBC mode
-  static uint8_t* Iv;
-#endif
+
+// Initial Vector used only for CBC mode
+static uint8_t* Iv;
 
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
 // The numbers below can be computed dynamically trading ROM for RAM - 
@@ -299,24 +291,12 @@ static void MixColumns(void)
 }
 
 // Multiply is used to multiply numbers in the field GF(2^8)
-#if MULTIPLY_AS_A_FUNCTION
-static uint8_t Multiply(uint8_t x, uint8_t y)
-{
-  return (((y & 1) * x) ^
-       ((y>>1 & 1) * xtime(x)) ^
-       ((y>>2 & 1) * xtime(xtime(x))) ^
-       ((y>>3 & 1) * xtime(xtime(xtime(x)))) ^
-       ((y>>4 & 1) * xtime(xtime(xtime(xtime(x))))));
-  }
-#else
 #define Multiply(x, y)                                \
       (  ((y & 1) * x) ^                              \
       ((y>>1 & 1) * xtime(x)) ^                       \
       ((y>>2 & 1) * xtime(xtime(x))) ^                \
       ((y>>3 & 1) * xtime(xtime(xtime(x)))) ^         \
       ((y>>4 & 1) * xtime(xtime(xtime(xtime(x))))))   \
-
-#endif
 
 // MixColumns function mixes the columns of the state matrix.
 // The method used to multiply may be difficult to understand for the inexperienced.
@@ -448,44 +428,6 @@ static void BlockCopy(uint8_t* output, const uint8_t* input)
 /*****************************************************************************/
 /* Public functions:                                                         */
 /*****************************************************************************/
-#if defined(ECB) && ECB
-
-
-void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output)
-{
-  // Copy input to output, and work in-memory on output
-  BlockCopy(output, input);
-  state = (state_t*)output;
-
-  Key = key;
-  KeyExpansion();
-
-  // The next function call encrypts the PlainText with the Key using AES algorithm.
-  Cipher();
-}
-
-void AES128_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output)
-{
-  // Copy input to output, and work in-memory on output
-  BlockCopy(output, input);
-  state = (state_t*)output;
-
-  // The KeyExpansion routine must be called before encryption.
-  Key = key;
-  KeyExpansion();
-
-  InvCipher();
-}
-
-
-#endif // #if defined(ECB) && ECB
-
-
-
-
-
-#if defined(CBC) && CBC
-
 
 static void XorWithIv(uint8_t* buf)
 {
@@ -576,8 +518,5 @@ void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
     InvCipher();
   }
 }
-
-
-#endif // #if defined(CBC) && CBC
 
 
